@@ -57,22 +57,22 @@ LazyStreams module provided there and its Exercise 6.
 NativeLazyStreams module so we can use its bits more easily. *)
 
 open NativeLazyStreams ;;
-     
+
     (* Digression: We've just opened NativeLazyStreams above, so we can
     make use of its elements in this file. But if you want to use it in
     the REPL, you'll need to make it accessible there as well, e.g.,
 
         # #mod_use "nativeLazyStreams.ml" ;;
-        # open NativeLazyStreams ;;            
+        # open NativeLazyStreams ;;
      *)
-  
+
 (* We implement the Fibonacci sequence as a
 NativeLazystreams.stream *)
-  
+
 let rec fibs =
   lazy (Cons(0, lazy (Cons(1, smap2 (+) fibs (tail fibs))))) ;;
 
-(* We run it twice, generating the first 50 Fibonacci numbers: 
+(* We run it twice, generating the first 50 Fibonacci numbers:
 
     # CS51.call_reporting_time (first 50) fibs ;;
     time (msecs): 0.029087
@@ -109,8 +109,11 @@ second argument. For example:
     - : float list = [1.; 2.; 4.; 8.; 16.; 32.; 64.; 128.; 256.; 512.]
 ....................................................................*)
 
-let geo _ = failwith "geo not implemented" ;;
+let rec geo (f1 : float) (f2 : float) : float stream =
+    lazy (Cons (f1, geo (f1 *. f2) f1)) ;;
 
+let rec geo (f1 : float) (f2 : float) : float stream =
+    lazy (Cons(f1, smap ( fun x -> x *. f2) (geo f1 f2))) ;;
 (*====================================================================
 Part 2. Eratosthenes' sieve revisited
 
@@ -121,36 +124,41 @@ from that lab, which used the LazyStreams module.
     let rec nats =
       fun () -> Cons(0, smap ((+) 1) nats) ;;
 
-    let not_div_by (n : int) (m : int) : bool = 
+    let not_div_by (n : int) (m : int) : bool =
       not (m mod n = 0) ;;
 
     let rec sieve (s : int stream) : int stream =
       let Cons(h, t) = s () in
-      fun () -> Cons(h, sieve (sfilter (not_div_by h) t)) ;; 
+      fun () -> Cons(h, sieve (sfilter (not_div_by h) t)) ;;
 
     let primes : int stream = sieve (tail (tail nats)) ;;
  *)
 
 (*....................................................................
 Exercise 3. Redo the Eratosthenes sieve using the NativeLazyStreams
-module by completing the values and functions below. 
+module by completing the values and functions below.
 ....................................................................*)
 
-let rec nats = lazy (failwith "nats native not implemented") ;;
- 
-let rec sieve s = failwith "sieve native not implemented" ;;
+let rec nats =
+    lazy (Cons(0, smap ((+) 1) nats)) ;;
 
-let primes = lazy (failwith "primes native not implemented") ;;
+let not_div_by (n : int) (m : int) : bool =
+    not (m mod n = 0) ;;
+
+let rec sieve (s : int stream) : int stream =
+    lazy (Cons (head s, sieve (sfilter (not_div_by (head s)) (tail s)))) ;;
+
+let primes = sieve (tail (tail nats)) ;;
 
 (*....................................................................
 Exercise 4. How much further can you get computing primes now that the
 recomputation problem is solved?  Implement a function to find the nth
-element in a stream, and use it to find out the 2000th prime. 
+element in a stream, and use it to find out the 2000th prime.
 ....................................................................*)
 
 let rec nth (s : 'a stream) (n : int) : 'a =
-  failwith "nth native not implemented" ;;
-
+    let lst = first n s in
+    List.hd (List.rev lst) ;;
 
 (*====================================================================
 Part 3: Series acceleration with infinite streams
@@ -187,21 +195,21 @@ the input stream. For example:
 # first 5 (average (to_float nats)) ;;
 - : float list = [0.5; 1.5; 2.5; 3.5; 4.5]
 ....................................................................*)
-  
+
 let average (s : float stream) : float stream =
-  failwith "average not implemented" ;;
+    smap2 (fun x y -> (x +. y) /. 2.) s (tail s) ;;
 
 (* Now instead of using the stream of approximations in pi_sums, you
 can instead use the stream of averaged pi_sums, which converges much
 more quickly. Test that it requires far fewer steps to get within,
 say, 0.001 of pi. You'll want to record your results below for
 Exercise 6. *)
-   
+
 (*....................................................................
 Exercise 6: Implementing Aitken's method
 
 An even better accelerator of convergence for series of this sort is
-Aitken's method. 
+Aitken's method.
 
 Given a stream s_1, s_2, s_3, etc., instead of averaging contiguous
 elements, that is, generating the accelerated stream of elements s'_1
@@ -216,9 +224,17 @@ http://url.cs51.io/aitken.
 Write a function to apply this accelerator to a stream, and use it to
 generate approximations of pi.
 ....................................................................*)
-   
+
+let rec smap3 (f : 'a -> 'b -> 'c -> 'd)
+              (s1 : 'a stream)
+              (s2 : 'b stream)
+              (s3 : 'c stream)
+            : 'd stream =
+            lazy (Cons (f (head s1) (head s2) (head s3),
+                            smap3 f (tail s1) (tail s2) (tail s3))) ;;
+
 let aitken (s: float stream) : float stream =
-  failwith "aitken not implemented" ;;
+    smap3 (fun x y z-> z -. (( (z -. y) ** 2. ) /. (z -. (2. *. y) +. x))) s (tail s) (tail (tail s)) ;;
 
 (*......................................................................
 Exercise 7: Testing the acceleration
@@ -227,7 +243,7 @@ Fill out the following table, recording how many steps are needed to
 get within different epsilons of pi.
 
     ---------------------------------------------------------
-    epsilon  |  pi_sums  |  averaged method  |  aitken method 
+    epsilon  |  pi_sums  |  averaged method  |  aitken method
     ---------------------------------------------------------
     0.1      |           |                   |
     ---------------------------------------------------------
@@ -238,4 +254,3 @@ get within different epsilons of pi.
     0.0001   |           |                   |
     ---------------------------------------------------------
 ......................................................................*)
-
