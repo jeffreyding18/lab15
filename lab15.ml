@@ -157,8 +157,8 @@ element in a stream, and use it to find out the 2000th prime.
 ....................................................................*)
 
 let rec nth (s : 'a stream) (n : int) : 'a =
-    let lst = first n s in
-    List.hd (List.rev lst) ;;
+    if n = 0 then head s
+    else nth (tail s) (n - 1) ;;
 
 (*====================================================================
 Part 3: Series acceleration with infinite streams
